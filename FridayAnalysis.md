@@ -1,7 +1,9 @@
-Project 1: predictive models
+Project 2: predictive models
 ================
 Min He
 July 2, 2020 (updated 2020-07-03)
+
+# Project report for Friday
 
 ## Introduction about the data
 
@@ -87,11 +89,6 @@ It includes the following columns:
 
 ## Read in the news popularity data
 
-``` r
-setwd("/home/aaron/Documents/NCSU_MinHe/ST558/project2_question")
-pop_raw <- read.csv("OnlineNewsPopularity.csv", header = TRUE)
-```
-
 ## Data preprocessing
 
   - Combine the weekday flags into one variable `news_day`, e.g.: when
@@ -115,99 +112,28 @@ pop_raw <- read.csv("OnlineNewsPopularity.csv", header = TRUE)
         negative, positive, sentiment)
       - reference characteristics (shares of referenced, href)
 
-<!-- end list -->
-
-``` r
-# Combine the weekday variables into one and set it to factor.
-pop_raw$news_day <- rep("Sunday", nrow(pop_raw))
-pop_raw$news_day[pop_raw$weekday_is_monday==1] <- "Monday"
-pop_raw$news_day[pop_raw$weekday_is_tuesday==1] <- "Tuesday"
-pop_raw$news_day[pop_raw$weekday_is_wednesday==1] <- "Wednesday"
-pop_raw$news_day[pop_raw$weekday_is_thursday==1] <- "Thursday"
-pop_raw$news_day[pop_raw$weekday_is_friday==1] <- "Friday"
-pop_raw$news_day[pop_raw$weekday_is_saturday==1] <- "Saturday"
-pop_raw$news_day <- factor(pop_raw$news_day) 
-
-# Combine the channel variables into one and set it to factor.
-pop_raw$data_channel <- rep('', nrow(pop_raw))
-pop_raw$data_channel[pop_raw$data_channel_is_lifestyle==1] <- "lifestyle"
-pop_raw$data_channel[pop_raw$data_channel_is_entertainment==1] <- "entertainment"
-pop_raw$data_channel[pop_raw$data_channel_is_bus==1] <- "business"
-pop_raw$data_channel[pop_raw$data_channel_is_socmed==1] <- "socmed"
-pop_raw$data_channel[pop_raw$data_channel_is_tech==1] <- "tech"
-pop_raw$data_channel[pop_raw$data_channel_is_world==1] <- "world"
-pop_raw$data_channel <- factor(pop_raw$data_channel) 
-
-pop_raw$shares_flag <- as.factor(pop_raw$shares>=1400)
-```
-
 ## Clearing data
 
   - Remove the unused/non-predictive variables
   - Remove outliers (e.g.: n\_tokens\_content\<=0)
   - Subset the records to the day defined by the argument
 
-<!-- end list -->
-
-``` r
-# Remove the non predictable variables
-pop_raw<-pop_raw %>% subset(select=-c(url, timedelta, is_weekend, weekday_is_monday, weekday_is_tuesday, weekday_is_wednesday, weekday_is_thursday, weekday_is_friday, weekday_is_saturday,weekday_is_sunday, data_channel_is_lifestyle, data_channel_is_entertainment, data_channel_is_bus, data_channel_is_socmed, data_channel_is_tech, data_channel_is_world))
-
-# filter out outliers
-pop_raw_post <- pop_raw %>% filter( n_tokens_content > 0 & n_unique_tokens >= 0 & n_unique_tokens <=1.0 & n_non_stop_words>=0 & n_non_stop_words<=1.0 & n_non_stop_unique_tokens>=0 & n_non_stop_unique_tokens<=1.0)
-
-pop_1_day <- pop_raw_post %>% filter(news_day == params$weekday) %>% subset(select=-c(news_day))
-```
-
 ## Divide dataset into training v.s. testing datasets
 
   - Set random seeds so that the results can be replicated
   - Break the dataset into 70% for training v.s. 30% for testing
 
-<!-- end list -->
-
-``` r
-# Sampling the dataset into 80% : training data and 20% : test data:
-set.seed(100)
-popNewsTrain <- sample(nrow(pop_1_day),as.integer(nrow(pop_1_day)*0.7))
-train.news = pop_1_day[popNewsTrain,]
-test.news = pop_1_day[-popNewsTrain,]
-```
-
 ## Data summary and exploratory analysis
 
 ### Boxplot for some of the key variables to identify the outliers
-
-``` r
-# summary of the raw pop data
-par(mfrow=c(3,5))
-kay_variable <- c('n_tokens_title','n_tokens_content','num_hrefs', 'num_self_hrefs','num_keywords','kw_avg_min','kw_avg_max','kw_max_avg','kw_avg_avg','self_reference_avg_sharess','LDA_00','global_rate_positive_words','global_rate_negative_words','avg_positive_polarity','avg_negative_polarity')
-for (col in kay_variable){
-  boxplot(train.news[,col], xlab=col) 
-}
-```
 
 ![](FridayAnalysis_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 ### Scatterplot of the shares v.s. some othe key variables to identify the linear relationship (although we are using logistic linear regression, but the scatterplot is still useful to identify the patterns)
 
-``` r
-par(mfrow=c(3,5))
-for (col in kay_variable){
-  plot(train.news[,col], train.news[,'shares'],  main = paste(col, ' v.s. shares'), xlab = col, ylab = 'shares')  
-}
-```
-
 ![](FridayAnalysis_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
 ### Histogram for key variables, it’s a good way to check the distribution (whether it’s normal distribution or not)
-
-``` r
-par(mfrow=c(3,5))
-for (col in c('shares',kay_variable)){
-  hist(train.news[,col],  main = paste('Histogram for ', col ), xlab = col, ylab = 'share')  
-}
-```
 
 ![](FridayAnalysis_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->![](FridayAnalysis_files/figure-gfm/unnamed-chunk-7-2.png)<!-- -->
 
@@ -222,20 +148,6 @@ for (col in c('shares',kay_variable)){
     that model. (excerpted from [linked
     wiki](https://en.wikipedia.org/wiki/Akaike_information_criterion))
 
-<!-- end list -->
-
-``` r
-train.news <- train.news %>% subset(select=-c(shares))
-test.news <- test.news %>% subset(select=-c(shares))
-
-# Fit the full model 
-# So try logistic regression model
-full.model <- glm(shares_flag ~ ., data = train.news, family = "binomial")
-
-# Stepwise regression model
-step.model <- stepAIC(full.model, direction = "both", trace = FALSE)
-```
-
 ## Predict the value for test dataset with the trained logistic model
 
   - If the predicted response is larger than 0.5, then it’s
@@ -243,12 +155,6 @@ step.model <- stepAIC(full.model, direction = "both", trace = FALSE)
   - Calculate/print the confusion matrix
 
 <!-- end list -->
-
-``` r
-predict_value <- predict(step.model,test.news,type = "response") 
-glm_confusionMatrix <- confusionMatrix(data = as.factor(predict_value>0.5), reference = as.factor(test.news$shares_flag))
-glm_confusionMatrix
-```
 
     ## Confusion Matrix and Statistics
     ## 
@@ -282,12 +188,6 @@ glm_confusionMatrix
 
   - Set number of trees to be 200
 
-<!-- end list -->
-
-``` r
-bagFit <- randomForest(shares_flag ~ ., data = train.news, mtry = ncol(train.news) - 1, ntree = 200, importance = TRUE)
-```
-
 ## Predict the value for test dataset with the trained bagging model
 
   - If the predicted response is larger than 0.5, then it’s
@@ -295,12 +195,6 @@ bagFit <- randomForest(shares_flag ~ ., data = train.news, mtry = ncol(train.new
   - Calculate/print the confusion matrix
 
 <!-- end list -->
-
-``` r
-bagPred <- predict(bagFit, newdata = dplyr::select(test.news, -shares_flag))
-bag_confusionMatrix <- confusionMatrix(data = bagPred, reference = as.factor(test.news$shares_flag))
-bag_confusionMatrix
-```
 
     ## Confusion Matrix and Statistics
     ## 
@@ -342,9 +236,3 @@ The bagging methods are using classification trees.
 
 The results obtained from the bagging and logistic regression show
 similar accuracy, and it’s about 63% of accuracy for Monday only data.
-
-## Generate the report for all days automatically
-
-``` r
-#get unique days
-```

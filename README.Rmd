@@ -1,5 +1,5 @@
 ---
-title: "Project 1:  predictive models"
+title: "Project 2:  predictive models"
 author: 
 - "Min He"
 date: "July 2, 2020 (updated `r Sys.Date()`)"
@@ -7,7 +7,7 @@ output: rmarkdown::github_document
 ---
   
 ```{r setup1, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE)
+knitr::opts_chunk$set(echo = FALSE, eval = TRUE, message = FALSE)
 library(rmarkdown)
 ```
 
@@ -32,10 +32,10 @@ for(d in days){
 ```
 
 
-The analysis for [Monday is available here](MondayAnalysis.md)
-The analysis for [Tuesday is available here](TuesdayAnalysis.md)
-The analysis for [Wednesday is available here](WednesdayAnalysis.md)
-The analysis for [Thursday is available here](ThursdayAnalysis.md)
-The analysis for [Friday is available here](FridayAnalysis.md)
-The analysis for [Saturday is available here](SaturdayAnalysis.md)
-The analysis for [Sunday is available here](SundayAnalysis.md)
+The analysis for [Monday is available here](MondayAnalysis.md)   
+The analysis for [Tuesday is available here](TuesdayAnalysis.md)  
+The analysis for [Wednesday is available here](WednesdayAnalysis.md)  
+The analysis for [Thursday is available here](ThursdayAnalysis.md)  
+The analysis for [Friday is available here](FridayAnalysis.md)  
+The analysis for [Saturday is available here](SaturdayAnalysis.md)  
+The analysis for [Sunday is available here](SundayAnalysis.md)  
