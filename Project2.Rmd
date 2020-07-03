@@ -1,0 +1,158 @@
+---
+title: "Project 1:  predictive models"
+author: 
+- "Min He"
+date: "July 2, 2020 (updated `r Sys.Date()`)"
+output: 
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    code_folding: show
+    toc_float:
+      collapsed: yes
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE)
+library(readr)
+library(tidyverse)
+library(MASS)
+library(caret)
+library(randomForest)
+```
+
+## Introduction about the data
+
+This dataset summarizes a heterogeneous set of features about articles published by Mashable in a period of two years. The goal is to predict the number of shares in social networks (popularity). [linked source] (https://archive.ics.uci.edu/ml/datasets/Online+News+Popularity)
+
+It includes the following columns (not all of them are described)
+
+* shares: Number of shares in social media (this is the dependent variable)
+*
+
+
+
+## Read in the news popularity data
+
+```{r}
+setwd("/home/aaron/Documents/NCSU_MinHe/ST558/Project2")
+pop_raw <- read.csv("OnlineNewsPopularity.csv", header = TRUE)
+```
+
+## Data preprocessing
+
+* Combine the weekday flags into one variable `news_day`, e.g.: when `weekday_is_monday`=1, set the `news_day`='Monday'
+* Combine the topic channels into one variable `data_channel`, e.g.: when `data_channel_is_lifestyle`=1, set the `data_channel`='lifestyle'
+* Dividing the shares into two groups (< 1400 and ≥ 1400)
+
+```{r}
+# summary of the raw pop data
+summary(pop_raw)
+# From the summary, we can see there are outliers exist in valriables: n_tokens_content,n_unique_tokens,n_non_stop_words
+# n_non_stop_unique_tokens, num_hrefs, num_self_hrefs, num_imgs, num_videos, kw_min_min, kw_max_min, kw_max_avg, kw_avg_avg
+# self_reference_min_shares, self_reference_max_shares, self_reference_avg_sharess, shares
+
+# Remove the non predictable variables
+
+pop_raw$news_day <- rep("Sunday", nrow(pop_raw))
+pop_raw$news_day[pop_raw$weekday_is_monday==1] <- "Monday"
+pop_raw$news_day[pop_raw$weekday_is_tuesday==1] <- "Tuesday"
+pop_raw$news_day[pop_raw$weekday_is_wednesday==1] <- "Wednesday"
+pop_raw$news_day[pop_raw$weekday_is_thursday==1] <- "Thursday"
+pop_raw$news_day[pop_raw$weekday_is_friday==1] <- "Friday"
+pop_raw$news_day[pop_raw$weekday_is_saturday==1] <- "Saturday"
+pop_raw$news_day <- factor(pop_raw$news_day) 
+# convert the binary outcomes variables into factors
+
+pop_raw$data_channel <- rep('', nrow(pop_raw))
+pop_raw$data_channel[pop_raw$data_channel_is_lifestyle==1] <- "lifestyle"
+pop_raw$data_channel[pop_raw$data_channel_is_entertainment==1] <- "entertainment"
+pop_raw$data_channel[pop_raw$data_channel_is_bus==1] <- "business"
+pop_raw$data_channel[pop_raw$data_channel_is_socmed==1] <- "socmed"
+pop_raw$data_channel[pop_raw$data_channel_is_tech==1] <- "tech"
+pop_raw$data_channel[pop_raw$data_channel_is_world==1] <- "world"
+pop_raw$data_channel <- factor(pop_raw$data_channel) 
+
+pop_raw$shares_flag <- pop_raw$shares>=1400
+```
+
+## Clearing data
+
+* Remove the unused/non-predictive variables
+* Remove outliers (e.g.: n_tokens_content<=0)
+* Subset the records to the day defined by the argument
+
+```{r}
+pop_raw<-pop_raw %>% subset(select=-c(url, timedelta, is_weekend, weekday_is_monday, weekday_is_tuesday, weekday_is_wednesday, weekday_is_thursday, weekday_is_friday, weekday_is_saturday,weekday_is_sunday, data_channel_is_lifestyle, data_channel_is_entertainment, data_channel_is_bus, data_channel_is_socmed, data_channel_is_tech, data_channel_is_world, shares))
+
+# filter out outliers
+pop_raw_post <- pop_raw %>% filter( n_tokens_content > 0 & n_unique_tokens >= 0 & n_unique_tokens <=1.0 & n_non_stop_words>=0 & n_non_stop_words<=1.0 & n_non_stop_unique_tokens>=0 & n_non_stop_unique_tokens<=1.0)
+
+pop_1_day <- pop_raw_post %>% filter(news_day == 'Monday') %>% subset(select=-c(news_day))
+```
+
+## Divide dataset into training v.s. testing datasets
+
+* Set random seeds so that the results can be replicated
+* Break the dataset into 70% for training v.s. 30% for testing
+
+```{r}
+# Sampling the dataset into 80% : training data and 20% : test data:
+set.seed(100)
+popNewsTrain <- sample(nrow(pop_1_day),as.integer(nrow(pop_1_day)*0.7))
+train.news = pop_1_day[popNewsTrain,]
+test.news = pop_1_day[-popNewsTrain,]
+```
+
+## Train the predictive model by using logistic regression
+
+* Use both direction (forwards and backwards) stepwise methods to pick up the predict variables
+* AIC is used as the criterion to pick the best combination of predict variables
+* AIC estimates the relative amount of information lost by a given model: the less information a model loses, the higher the quality of that model. (excerpted from [linked wiki](https://en.wikipedia.org/wiki/Akaike_information_criterion))
+
+```{r}
+# Fit the full model 
+# So try logistic regression model
+full.model <- glm(shares_flag ~ ., data = train.news, family = "binomial")
+
+# Stepwise regression model
+step.model <- stepAIC(full.model, direction = "both", 
+                      trace = FALSE)
+```
+
+## Predict the value for test dataset with the trained logistic model
+
+* If the predicted response is larger than 0.5, then it's shares>=1400
+* Calculate/print the confusion matrix
+
+```{r}
+predict_value <- predict(step.model,test.news,type = "response") 
+glm_confusionMatrix <- confusionMatrix(data = as.factor(predict_value>0.5), reference = as.factor(test.news$shares_flag))
+glm_confusionMatrix
+```
+
+## Train the predictive model by using random forest
+
+* Set number of trees to be 200
+
+
+```{r}
+bagFit <- randomForest(shares_flag ~ ., data = train.news, mtry = ncol(train.news) - 1,
+                       ntree = 200, importance = TRUE)
+```
+
+
+## Predict the value for test dataset with the trained bagging model
+
+* If the predicted response is larger than 0.5, then it's shares>=1400
+* Calculate/print the confusion matrix
+
+```{r}
+bagPred <- predict(bagFit, newdata = dplyr::select(test.news, -shares_flag))
+
+bag_confusionMatrix <- confusionMatrix(data = as.factor(bagPred>0.5), reference = as.factor(test.news$shares_flag))
+
+```
+
+## Conclusion
